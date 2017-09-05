@@ -1,30 +1,54 @@
 import requests
+import time
+import os
 from bs4 import BeautifulSoup
 
-def download_file(url, data):
-    local_filename = url.split('/')[-1]
-    # NOTE the stream=True parameter
+COUNTY_URL = 'http://120.126.138.196/idb/LandSaleQuery.aspx'
+IDLE_LAND_URL = 'http://120.126.138.196/idb/UnUseLandQueryResult.aspx?ipark=0&city='
+
+def get_counties_cities(url):
+    r = requests.get(url).text
+    soup = BeautifulSoup(r, "lxml")
+    subject_options = soup.select('select[name=ddlCity] > option')
+    dict = {}
+    for opt in subject_options:
+        if opt['value']:
+            dict[opt['value']] = opt.text
+    print(dict)
+    return dict
+
+def download_file(url, data, filename):
+    remote_filename = url.split('/')[-1]
     r = requests.post(url, stream=True, data=data)
-    with open(local_filename, 'wb') as f:
+    # check if the directory exist
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    # download the xls file
+    with open(filename+'.xls', 'wb') as f:
         for chunk in r.iter_content(chunk_size=1024):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
-                #f.flush() commented by recommendation from J.F.Sebastian
-    return local_filename
+    return remote_filename
 
-url = 'http://120.126.138.196/idb/UnUseLandQueryResult.aspx?city=K&ipark=0'
-html = requests.post(url, stream=True).text
-soup = BeautifulSoup(html, "lxml")
-try:
-    viewState = soup.find('input', {'id': '__VIEWSTATE'}).get('value')
-    eventValidation = soup.find('input', {'id': '__EVENTVALIDATION'}).get('value')
-    btnExport = soup.find('input', {'id': 'btnExport'}).get('value')
-    print(viewState, eventValidation, btnExport)
-    r = download_file(url, {
-        '__VIEWSTATE': viewState,
-        '__EVENTVALIDATION': eventValidation,
-        'btnExport': btnExport
-    })
-    print(r)
-except:
-    pass
+
+# First get countites and cities
+counties = get_counties_cities(COUNTY_URL)
+
+# Get data from all counties and cities
+for key in counties:
+    url = IDLE_LAND_URL + key
+    print(url)
+    html = requests.post(url, stream=True).text
+    soup = BeautifulSoup(html, "lxml")
+    try:
+        viewState = soup.find('input', {'id': '__VIEWSTATE'}).get('value')
+        eventValidation = soup.find('input', {'id': '__EVENTVALIDATION'}).get('value')
+        btnExport = soup.find('input', {'id': 'btnExport'}).get('value')
+        filename = 'data/' + time.strftime('%Y%m%d') + '/' + key + '_' + counties[key]
+        r = download_file(url, {
+            '__VIEWSTATE': viewState,
+            '__EVENTVALIDATION': eventValidation,
+            'btnExport': btnExport
+        }, filename)
+        print(r)
+    except:
+        pass
