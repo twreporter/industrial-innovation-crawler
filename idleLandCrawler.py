@@ -18,7 +18,8 @@ def get_counties_cities(url):
     print(dict)
     return dict
 
-def download_file(url, data, filename):
+def download_file(url, data, countyID, countyName):
+    filename = 'data/' + time.strftime('%Y%m%d') + '/' + countyID + '_' + countyName
     filepath = filename+'.xls'
     remote_filename = url.split('/')[-1]
     r = requests.post(url, stream=True, data=data)
@@ -29,9 +30,17 @@ def download_file(url, data, filename):
         for chunk in r.iter_content(chunk_size=1024):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
-    sheet = pd.read_excel(filepath, header=None)
+    sheet = pd.read_excel(filepath, skiprows=1)
+    if not sheet.empty:
+        sheet = sheet.assign(county_id=countyID, county_name=countyName)
     print(sheet.shape)
     return sheet
+
+def moveColumnToBeginning(df, colName):
+    col = dframe[colName]
+    df.drop(labels=[colName], axis=1, inplace = True)
+    df.insert(0, colName, col)
+    return df
 
 
 # First get countites and cities
@@ -49,12 +58,11 @@ for key in counties:
         viewState = soup.find('input', {'id': '__VIEWSTATE'}).get('value')
         eventValidation = soup.find('input', {'id': '__EVENTVALIDATION'}).get('value')
         btnExport = soup.find('input', {'id': 'btnExport'}).get('value')
-        filename = 'data/' + time.strftime('%Y%m%d') + '/' + key + '_' + counties[key]
         sheet = download_file(url, {
             '__VIEWSTATE': viewState,
             '__EVENTVALIDATION': eventValidation,
             'btnExport': btnExport
-        }, filename)
+        }, key, counties[key])
 
         # parse the downloaded data
         if not sheet.empty:
@@ -68,5 +76,7 @@ print(dframe)
 
 # Save Excel file
 writer = pd.ExcelWriter('output.xls')
+dframe = moveColumnToBeginning(dframe, 'county_name')
+dframe = moveColumnToBeginning(dframe, 'county_id')
 dframe.to_excel(writer,'Sheet1')
 writer.save()
