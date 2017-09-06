@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 
 COUNTY_URL = 'http://120.126.138.196/idb/LandSaleQuery.aspx'
 IDLE_LAND_URL = 'http://120.126.138.196/idb/UnUseLandQueryResult.aspx?ipark=0&city='
+FOLDER_PATH_NAME = 'idle_industrial_land'
 
 def get_counties_cities(url):
     r = requests.get(url).text
@@ -19,12 +20,12 @@ def get_counties_cities(url):
     return dict
 
 def download_file(url, data, countyID, countyName):
-    filename = 'data/' + time.strftime('%Y%m%d') + '/' + countyID + '_' + countyName
+    filename = 'data/' + FOLDER_PATH_NAME + '/' + time.strftime('%Y%m%d') + '/' + countyID + '_' + countyName
     filepath = filename+'.xls'
     remote_filename = url.split('/')[-1]
     r = requests.post(url, stream=True, data=data)
     # check if the directory exist
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     # download the xls file
     with open(filepath, 'wb') as f:
         for chunk in r.iter_content(chunk_size=1024):
@@ -41,6 +42,19 @@ def moveColumnToBeginning(df, colName):
     df.drop(labels=[colName], axis=1, inplace = True)
     df.insert(0, colName, col)
     return df
+
+def writeExcel(df, filepath):
+    # check if the directory exist
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    writer = pd.ExcelWriter(filepath + '.xls')
+    dframe.to_excel(writer, 'Sheet1')
+    writer.save()
+
+def writeCSV(df, filepath):
+    filepath = filepath + '.csv'
+    # check if the directory exist
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    df.to_csv(filepath, index=False, encoding='utf-8')
 
 
 # First get countites and cities
@@ -75,8 +89,11 @@ dframe = pd.concat(allData)
 print(dframe)
 
 # Save Excel file
-writer = pd.ExcelWriter('output.xls')
 dframe = moveColumnToBeginning(dframe, 'county_name')
 dframe = moveColumnToBeginning(dframe, 'county_id')
-dframe.to_excel(writer,'Sheet1')
-writer.save()
+path1 = 'latest_data/' + FOLDER_PATH_NAME
+path2 = 'data/' + FOLDER_PATH_NAME + '/' + time.strftime('%Y%m%d')
+writeExcel(dframe, path1)
+writeCSV(dframe, path1)
+writeExcel(dframe, path2)
+writeCSV(dframe, path2)
