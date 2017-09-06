@@ -1,3 +1,4 @@
+import asyncio
 import requests
 import time
 import os
@@ -7,6 +8,7 @@ from bs4 import BeautifulSoup
 COUNTY_URL = 'http://120.126.138.196/idb/LandSaleQuery.aspx'
 IDLE_LAND_URL = 'http://120.126.138.196/idb/UnUseLandQueryResult.aspx?ipark=0&city='
 FOLDER_PATH_NAME = 'idle_industrial_land'
+DATE = time.strftime('%Y%m%d')
 
 def get_counties_cities(url):
     r = requests.get(url).text
@@ -20,7 +22,7 @@ def get_counties_cities(url):
     return dict
 
 def download_file(url, data, countyID, countyName):
-    filename = 'data/' + FOLDER_PATH_NAME + '/' + time.strftime('%Y%m%d') + '/' + countyID + '_' + countyName
+    filename = 'data/' + FOLDER_PATH_NAME + '/' + DATE + '/' + countyID + '_' + countyName
     filepath = filename+'.xls'
     remote_filename = url.split('/')[-1]
     r = requests.post(url, stream=True, data=data)
@@ -92,7 +94,7 @@ print(dframe)
 dframe = moveColumnToBeginning(dframe, 'county_name')
 dframe = moveColumnToBeginning(dframe, 'county_id')
 path1 = 'latest_data/' + FOLDER_PATH_NAME
-path2 = 'data/' + FOLDER_PATH_NAME + '/' + time.strftime('%Y%m%d')
+path2 = 'data/' + FOLDER_PATH_NAME + '/' + DATE
 writeExcel(dframe, path1)
 writeCSV(dframe, path1)
 writeExcel(dframe, path2)
